@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Decay Simulation</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        canvas {
+            border: 1px solid black;
+            margin-top: 10px;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        .controls {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Radioactive Decay Simulation</h1>
+
+    <!-- Canvas for Particle Simulation -->
+    <canvas id="canvas" width="600" height="600"></canvas>
+    <br>
+
+    <!-- Buttons and Controls -->
+    <div class="controls">
+        <label for="halfLife">Half-Life (seconds):</label>
+        <input type="number" id="halfLife" value="1" min="1" max="200">
+        <button id="startBtn">Start Animation</button>
+        <button id="downloadBtn">Download CSV</button>
+    </div>
+
+    <!-- Text Information -->
+    <p id="info">Time: 0s | Undecayed Particles: 3600</p>
+
+    <!-- Graph Container -->
+    <div id="decayGraph" style="width: 600px; height: 400px; margin: auto;"></div>
+
+    <script>
+        // Canvas Setup
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        const PARTICLE_SIZE = 8;
+        const ROWS = 60;
+        const COLS = 60;
+        const TOTAL_PARTICLES = ROWS * COLS;
+
+        // Simulation State
+        let particles = [];
+        let halfLife = 1;
+        let time = 0;
+        let undecayedParticles = TOTAL_PARTICLES;
+        let decayData = [{ time: 0, undecayed: TOTAL_PARTICLES }];
+        let animationInterval = null;
+
+        // Initialize Particles
+        function initializeParticles() {
+            particles = [];
+            for (let i = 0; i < ROWS; i++) {
+                for (let j = 0; j < COLS; j++) {
+                    particles.push({ x: j, y: i, decayed: false });
+                }
+            }
+            time = 0;
+            undecayedParticles = TOTAL_PARTICLES;
+            decayData = [{ time: 0, undecayed: TOTAL_PARTICLES }];
+            updateGraph();
+            drawParticles();
+        }
+
+        // Draw Particles
+        function drawParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let particle of particles) {
+                ctx.fillStyle = particle.decayed ? "red" : "grey";
+                ctx.beginPath();
+                ctx.arc(
+                    particle.x * PARTICLE_SIZE + PARTICLE_SIZE / 2,
+                    particle.y * PARTICLE_SIZE + PARTICLE_SIZE / 2,
+                    PARTICLE_SIZE / 2,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+            }
+        }
+
+        // Decay Simulation
+        function decayParticles() {
+            const decayProbability = 1 - Math.pow(0.5, 1 / halfLife);
+            for (let particle of particles) {
+                if (!particle.decayed && Math.random() < decayProbability) {
+                    particle.decayed = true;
+                    undecayedParticles--;
+                }
+            }
+            time++;
+            decayData.push({ time, undecayed: undecayedParticles });
+            updateGraph();
+            drawParticles();
+            updateInfo();
+
+            if (undecayedParticles <= 0) {
+                clearInterval(animationInterval);
+            }
+        }
+
+        // Update Graph
+        function updateGraph() {
+            const times = decayData.map((d) => d.time);
+            const undecayed = decayData.map((d) => d.undecayed);
+            Plotly.newPlot("decayGraph", [
+                {
+                    x: times,
+                    y: undecayed,
+                    mode: "lines",
+                    name: "Undecayed Particles",
+                },
+            ], {
+                title: "Particle Decay Over Time",
+                xaxis: { title: "Time (s)" },
+                yaxis: { title: "Number of Undecayed Particles" },
+            });
+        }
+
+        // Update Info Text
+        function updateInfo() {
+            document.getElementById("info").innerText = `Time: ${time}s | Undecayed Particles: ${undecayedParticles}`;
+        }
+
+        // Download Data as CSV
+        function downloadCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,Time,Undecayed Particles\n";
+            decayData.forEach((d) => {
+                csvContent += `${d.time},${d.undecayed}\n`;
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "decay_data.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Event Listeners
+        document.getElementById("startBtn").addEventListener("click", () => {
+            clearInterval(animationInterval);
+            halfLife = parseFloat(document.getElementById("halfLife").value);
+            initializeParticles();
+            animationInterval = setInterval(decayParticles, 1000);
+        });
+
+        document.getElementById("downloadBtn").addEventListener("click", downloadCSV);
+
+        // Initial Setup
+        initializeParticles();
+    </script>
+</body>
+</html>
